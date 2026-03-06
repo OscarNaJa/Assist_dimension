@@ -2,15 +2,41 @@ local activeZones = {}
 local zoneOrder = {}
 local zoneConfigs = {}
 
+
+local function getZoneFactory()
+    local poly = rawget(_G, 'PolyZone')
+    local circle = rawget(_G, 'CircleZone')
+
+    if poly and circle then
+        return poly, circle
+    end
+
+    local polyExport = exports and exports['PolyZone']
+    if polyExport then
+        if not poly and type(polyExport.CreatePolyZone) == 'function' then
+            poly = { Create = function(points, opts) return polyExport:CreatePolyZone(points, opts) end }
+        end
+        if not circle and type(polyExport.CreateCircleZone) == 'function' then
+            circle = { Create = function(center, radius, opts) return polyExport:CreateCircleZone(center, radius, opts) end }
+        end
+    end
+
+    return poly, circle
+end
+
 local function toBoolean(value)
     return value == true
 end
 
 local function buildZone(name, data)
+    local polyZoneFactory, circleZoneFactory = getZoneFactory()
+
     if data.zonetype == 'circle' then
         if not data.center or not data.rad then return nil end
 
-        return CircleZone:Create(data.center, data.rad, {
+        if not circleZoneFactory then return nil end
+
+        return circleZoneFactory:Create(data.center, data.rad, {
             name = name,
             debugPoly = Config.DebugPoly
         })
@@ -20,7 +46,9 @@ local function buildZone(name, data)
         return nil
     end
 
-    return PolyZone:Create(data.zone, {
+    if not polyZoneFactory then return nil end
+
+    return polyZoneFactory:Create(data.zone, {
         name = name,
         minZ = data.min,
         maxZ = data.max,
@@ -68,6 +96,12 @@ local function refreshPlayerState()
 end
 
 local function registerZones()
+    local polyZoneFactory, circleZoneFactory = getZoneFactory()
+    if not polyZoneFactory and not circleZoneFactory then
+        print('[Assist_dimension] PolyZone dependency is missing. Please ensure resource `PolyZone` is started before Assist_dimension.')
+        return
+    end
+
     for zoneName, data in pairs(Config.Position or {}) do
         local zone = buildZone(zoneName, data)
         if zone then
