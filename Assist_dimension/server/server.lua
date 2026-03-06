@@ -67,7 +67,14 @@ RegisterNetEvent('sm_dimension:server:setCullingRadius', function(radius)
 end)
 
 RegisterNetEvent('sm_dimension:server:apply', function(data)
-    TriggerEvent(RESOURCE_PREFIX .. ':server:apply', data)
+    if type(data) ~= 'table' then return end
+
+    local mode = toNumber(data.mode)
+    if mode == 1 and data.zoneindex ~= nil then
+        setRoutingBucket(source, data.zoneindex)
+    elseif mode == 2 and data.culling ~= nil then
+        setCullingRadius(source, data.culling)
+    end
 end)
 
 RegisterNetEvent('sm_dimension:server:reset', function()
